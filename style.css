@@ -1,0 +1,115 @@
+*,
+*::after,
+*::before {
+	box-sizing: border-box;
+	max-width: 100%;
+	max-height: 100%;
+}
+
+body {
+	font-family: Arial, sans-serif;
+	padding: 20px;
+}
+
+#context-menu {
+	display: none;
+	position: absolute;
+	background-color: white;
+	border: 1px solid #ccc;
+	box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+	z-index: 1000;
+}
+
+#context-menu ul {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+#context-menu li button {
+	padding: 8px 12px;
+	cursor: pointer;
+	font-size: 16px;
+}
+
+#context-menu li:hover {
+	background-color: #f0f0f0;
+}
+
+button {
+	background-color: transparent;
+	border: none;
+}
+
+/* start note style  */
+#note-container {
+	position: fixed;
+	background: #00000050;
+	top: 0;
+	right: 0;
+	width: 100%;
+	height: 100%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	display: none;
+}
+
+div#note {
+	min-width: 250px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: #fff;
+	padding: 15px;
+	border-radius: 6px;
+	box-shadow: 0 0 5px #0000005c;
+	flex-direction: column;
+}
+
+div#note textarea {
+	width: 100%;
+	border: 0;
+	outline: none;
+	font-family: sans-serif, serif;
+	min-height: 108px;
+}
+
+div#note textarea::placeholder {
+	text-align: center;
+	font-size: 20px;
+}
+
+div#note .btns-container {
+	width: 100%;
+	margin-top: 20px;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+}
+
+div#note .btns-container button {
+	padding: 10px;
+	color: white;
+	font-size: 16px;
+	text-transdiv: capitalize;
+	border-radius: 6px;
+}
+
+div#note .btns-container #cancel-btn {
+	background: #ea5a47;
+}
+
+div#note .btns-container #save-btn {
+	background: #0b3151;
+}
+
+/* end note style  */
+
+/* note color */
+mark.note {
+	background-color: chartreuse;
+}
