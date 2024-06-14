@@ -117,3 +117,7 @@ div#note .btns-container #save-btn {
 mark.note {
 	background-color: chartreuse;
 }
+
+#note-container::selection {
+	user-select: none !important;
+}
