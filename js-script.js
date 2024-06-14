@@ -1,6 +1,8 @@
 let notes = [];
 
-const pointerPosition = { x: 0, y: 0 }
+const pointerPosition = { x: 0, y: 0, };
+
+let activeNoteId;
 
 document.addEventListener('DOMContentLoaded', (event) => {
   document.addEventListener('mousedown', handleDocumentClick);
@@ -41,16 +43,24 @@ function handleComment(event) {
 
   note.style.display = "flex";
   note.style.top = `${pointerPosition.y - menuHeight * 1.25}px`;
-  note.style.left = `${pointerPosition.x - menuWidth * 0.5}px`;
+  note.style.right = `${window.innerWidth * 0.5 + menuWidth / 2}px`;
 
-  console.log(selectionId);
   if (selection.toString().trim().length) {
-    const rangeId = highlightSelection("note");
+    highlightSelection("note");
+
+    const range = selection.getRangeAt(0);
+    const startId = range.startContainer.getAttribute('qaree-src-id');
+    const endId = range.startContainer.getAttribute('qaree-src-id');
+    const rangeId = `${startId}_${range.startOffset}-${endId}_${range.endOffset}`
+
+    activeNoteId = rangeId;
 
     note.setAttribute('note-id', rangeId);
     const noteInput = document.querySelector('textarea');
     noteInput.value = "";
   } else {
+    activeNoteId = selectionId;
+
     note.setAttribute('note-id', selectionId);
     const noteData = notes.find(r => r.id === selectionId)
     if (noteData) {
@@ -68,29 +78,25 @@ function handleCancelComment(event) {
   note.style.display = "none";
 
   const noteValue = document.querySelector('textarea');
-  const noteId = note.getAttribute('note-id');
 
   if (!noteValue.value) {
-    removeHighlighted(noteId);
-    notes = notes.filter(note => note.id !== noteId);
-    console.log(notes);
+    removeHighlighted(activeNoteId);
+    notes = notes.filter(note => note.id !== activeNoteId);
     // localStorage.setItem('notes', JSON.stringify(notes));
   }
 }
 
 function handleSaveComment(event) {
-  console.log(notes);
   const note = document.getElementById('note-container');
   const noteValue = document.querySelector('textarea');
   const noteId = note.getAttribute('note-id');
 
   if (noteValue.value) {
     const noteData = notes.find(note => note.id === noteId);
-    console.log(noteData);
     if (noteData) {
       noteData.note = noteValue.value;
       noteValue.value = "";
-    } else {
+    } else if (noteId) {
       const [[startId, startIdx], [endId, endIdx]] = noteId.split('-').map(e => e.split('_'));
 
       notes.push({
@@ -115,7 +121,6 @@ function handleSaveComment(event) {
   }
 
   note.style.display = "none";
-  console.log(notes);
 }
 
 function highlightSelection(type = "highlight") {
@@ -128,6 +133,9 @@ function highlightSelection(type = "highlight") {
     const startId = range.startContainer.getAttribute('qaree-src-id');
     const endId = range.startContainer.getAttribute('qaree-src-id');
     const rangeId = `${startId}_${range.startOffset}-${endId}_${range.endOffset}`
+
+    if (type === 'note' && rangeId !== activeNoteId)
+      activeNoteId = rangeId;
 
     selection.empty();
     if (
