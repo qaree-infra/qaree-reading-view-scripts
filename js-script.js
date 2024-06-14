@@ -1,17 +1,24 @@
-let notes;
+let notes = [];
+
+const pointerPosition = { x: 0, y: 0 }
 
 document.addEventListener('DOMContentLoaded', (event) => {
   document.addEventListener('mousedown', handleDocumentClick);
+  document.addEventListener('touchstart', handleDocumentClick);
+  document.addEventListener('contextmenu', showContextMenu);
   document.addEventListener('mouseup', showContextMenu);
-  document.addEventListener('selectionchange', function (event) {
-    showContextMenu(event);
+  document.addEventListener('click', (e) => { e.preventDefault(); })
+  document.addEventListener('touchend', showContextMenu);
+  document.addEventListener('mousemove', (e) => {
+    pointerPosition.x = e.clientX;
+    pointerPosition.y = e.clientY;
   });
 
-  notes = JSON.parse(localStorage?.getItem('notes') || JSON.stringify([]));
+  // notes = JSON.parse(localStorage?.getItem('notes') || '[]');
 
   if (!notes) {
     notes = [];
-    localStorage.setItem('notes', JSON.stringify(notes));
+    // localStorage.setItem('notes', JSON.stringify(notes));
   }
 });
 
@@ -23,18 +30,27 @@ function handleDocumentClick(event) {
 }
 
 function handleComment(event) {
+  const selection = window.getSelection();
   const selectionId = document.getElementById('context-menu').getAttribute('selection-range');
 
-  if (!selectionId) {
-    const rangeId = highlightSelection();
-    const note = document.getElementById('note-container');
-    note.style.display = "flex";
+  hideContextMenu();
+
+  const note = document.getElementById('note-container');
+  const menuWidth = Number(note.offsetWidth);
+  const menuHeight = Number(note.offsetHeight);
+
+  note.style.display = "flex";
+  note.style.top = `${pointerPosition.y - menuHeight * 1.25}px`;
+  note.style.left = `${pointerPosition.x - menuWidth * 0.5}px`;
+
+  console.log(selectionId);
+  if (selection.toString().trim().length) {
+    const rangeId = highlightSelection("note");
+
     note.setAttribute('note-id', rangeId);
     const noteInput = document.querySelector('textarea');
     noteInput.value = "";
   } else {
-    const note = document.getElementById('note-container');
-    note.style.display = "flex";
     note.setAttribute('note-id', selectionId);
     const noteData = notes.find(r => r.id === selectionId)
     if (noteData) {
@@ -58,11 +74,12 @@ function handleCancelComment(event) {
     removeHighlighted(noteId);
     notes = notes.filter(note => note.id !== noteId);
     console.log(notes);
-    localStorage.setItem('notes', JSON.stringify(notes));
+    // localStorage.setItem('notes', JSON.stringify(notes));
   }
 }
 
 function handleSaveComment(event) {
+  console.log(notes);
   const note = document.getElementById('note-container');
   const noteValue = document.querySelector('textarea');
   const noteId = note.getAttribute('note-id');
@@ -73,29 +90,51 @@ function handleSaveComment(event) {
     if (noteData) {
       noteData.note = noteValue.value;
       noteValue.value = "";
+    } else {
+      const [[startId, startIdx], [endId, endIdx]] = noteId.split('-').map(e => e.split('_'));
+
+      notes.push({
+        id: noteId,
+        start: {
+          id: startId,
+          idx: startIdx
+        },
+        end: {
+          id: endId,
+          idx: endIdx
+        },
+        note: noteValue.value
+      });
     }
 
-    localStorage.setItem('notes', JSON.stringify(notes));
+    // localStorage.setItem('notes', JSON.stringify(notes));
   } else {
     removeHighlighted(noteId);
     notes = notes.filter(note => note.id !== noteId);
-    localStorage.setItem('notes', JSON.stringify(notes));
+    // localStorage.setItem('notes', JSON.stringify(notes));
   }
 
   note.style.display = "none";
+  console.log(notes);
 }
 
-function highlightSelection() {
+function highlightSelection(type = "highlight") {
   const selection = window.getSelection();
   const menu = document.getElementById('context-menu');
+  hideContextMenu();
   if (selection.rangeCount > 0 && selection.toString().trim().length > 0) {
     const range = selection.getRangeAt(0);
-    highlightRange(range);
+    highlightRange(range, type);
     const startId = range.startContainer.getAttribute('qaree-src-id');
     const endId = range.startContainer.getAttribute('qaree-src-id');
     const rangeId = `${startId}_${range.startOffset}-${endId}_${range.endOffset}`
-    // restoreSelection(range);
-    if (!notes.find(e => e.id === rangeId) && (startId !== null || endId !== null) && window.getSelection().toString().trim().length > 0) {
+
+    selection.empty();
+    if (
+      !notes?.find(e => e.id === rangeId) &&
+      (startId !== null || endId !== null) &&
+      window.getSelection().toString().trim().length > 0
+    ) {
       notes.push({
         id: rangeId,
         start: {
@@ -108,22 +147,20 @@ function highlightSelection() {
         },
         note: "",
       });
-      localStorage.setItem('notes', JSON.stringify(notes));
+      // localStorage.setItem('notes', JSON.stringify(notes));
       return rangeId;
     }
   } else {
-    console.log(menu);
     const selectionId = menu.getAttribute('selection-range');
-    console.log(selectionId);
     if (selectionId) {
       removeHighlighted(selectionId);
-      notes = notes.filter(note => note.id !== selectionId);
-      localStorage.setItem('notes', notes);
+      notes = notes?.filter(note => note.id !== selectionId);
+      // localStorage.setItem('notes', notes);
     }
   }
 }
 
-function highlightRange(range) {
+function highlightRange(range, type) {
   const startContainer = range.startContainer;
   const endContainer = range.endContainer;
   const startId = startContainer.parentNode.getAttribute('qaree-src-id');
@@ -135,7 +172,7 @@ function highlightRange(range) {
   menu.setAttribute('selection-range', rangeId);
 
   if (startContainer === endContainer && startContainer.nodeType === Node.TEXT_NODE) {
-    wrapTextNodeWithMark(startContainer, range.startOffset, range.endOffset, rangeId);
+    wrapTextNodeWithMark(startContainer, range.startOffset, range.endOffset, rangeId, type);
 
     return;
   }
@@ -143,7 +180,7 @@ function highlightRange(range) {
   const startNode = splitTextNode(startContainer, range.startOffset, true);
   const endNode = splitTextNode(endContainer, range.endOffset, false);
 
-  wrapRangeWithMark(startNode, endNode, rangeId);
+  wrapRangeWithMark(startNode, endNode, rangeId, type);
 }
 
 function splitTextNode(node, offset, isStart) {
@@ -164,7 +201,7 @@ function splitTextNode(node, offset, isStart) {
   return isStart ? afterNode : beforeNode;
 }
 
-function wrapTextNodeWithMark(node, startOffset, endOffset, range) {
+function wrapTextNodeWithMark(node, startOffset, endOffset, range, type) {
   const text = node.textContent;
   const parentNode = node.parentNode;
   const beforeText = text.slice(0, startOffset);
@@ -176,6 +213,7 @@ function wrapTextNodeWithMark(node, startOffset, endOffset, range) {
   const afterNode = document.createTextNode(afterText);
 
   const markElement = document.createElement('mark');
+  markElement.classList.add(type);
   markElement.setAttribute('range-id', range);
   markElement.appendChild(middleNode);
 
@@ -187,7 +225,7 @@ function wrapTextNodeWithMark(node, startOffset, endOffset, range) {
   handleMarkElementMouseEvents(markElement, range);
 }
 
-function wrapRangeWithMark(startNode, endNode, range) {
+function wrapRangeWithMark(startNode, endNode, range, type) {
   let node = startNode;
   const nodesToWrap = [];
 
@@ -195,6 +233,7 @@ function wrapRangeWithMark(startNode, endNode, range) {
     if (node.nodeType === Node.TEXT_NODE) {
       const parentNode = node.parentNode;
       const markElement = document.createElement('mark');
+      markElement.classList.add(type);
       markElement.setAttribute('range-id', range);
 
       parentNode.insertBefore(markElement, node);
@@ -217,9 +256,9 @@ function wrapRangeWithMark(startNode, endNode, range) {
   nodesToWrap.forEach(node => {
     if (node.nodeType !== Node.TEXT_NODE) {
       const markElement = document.createElement('mark');
+      markElement.classList.add(type);
       markElement.setAttribute('range-id', range);
       while (node.firstChild) {
-        // console.log(node.firstChild);
         markElement.appendChild(node.firstChild);
 
         handleMarkElementMouseEvents(markElement, range);
@@ -229,8 +268,9 @@ function wrapRangeWithMark(startNode, endNode, range) {
   });
 }
 
-function wrapElementNodeWithMark(node, endNode, range) {
+function wrapElementNodeWithMark(node, endNode, range, type) {
   const markElement = document.createElement('mark');
+  markElement.classList.add(type);
   markElement.setAttribute('range-id', range);
 
   node.parentNode.insertBefore(markElement, node);
@@ -251,20 +291,21 @@ function wrapElementNodeWithMark(node, endNode, range) {
 }
 
 function handleMarkElementMouseEvents(markElement, range) {
-  markElement.addEventListener('mouseenter', (e) => showContextMenuOnHover(e, range));
-  markElement.addEventListener('mouseleave', (e) => {
+  function removeContextMenu(e) {
     // Check if mouse is outside the markElement (left or right)
     const rect = e.target.getBoundingClientRect();
     const menu = document.querySelector('#context-menu');
-    // console.log("top: ", rect.top);
-    // console.log('clientY: ', e.clientY);
     if (e.clientX < rect.left || e.clientX > rect.right) {
       if (e.clientY < rect.top && e.clientY > rect.top + menu.offsetHeight) {
         hideContextMenu();
       }
     }
-  });
+  }
 
+  markElement.addEventListener('mouseenter', (e) => showContextMenuOnHover(e, range));
+  markElement.addEventListener('touchmove', (e) => showContextMenuOnHover(e, range));
+  markElement.addEventListener('mouseleave', removeContextMenu);
+  markElement.addEventListener('touchend', removeContextMenu);
 }
 
 function getNextNode(node, endNode) {
@@ -296,50 +337,39 @@ function removeHighlighted(rangeId) {
     }
 
     // Replace the mark element with its child node(s)
-    markElement.parentNode.replaceChild(content, markElement);
+    markElement?.parentNode?.replaceChild(content, markElement);
   });
 
   hideContextMenu();
 }
 
-function getElementPosition(element) {
-  const rect = element.getBoundingClientRect();
-  return {
-    top: rect.top + window.scrollY,
-    left: rect.left + window.scrollX
-  };
-}
-
 function showContextMenu(event) {
-  const selection = window.getSelection();
-  if (selection.rangeCount > 0 && selection.toString().trim() !== '') {
-    const range = selection.getRangeAt(0);
-    const rect = range.getBoundingClientRect();
-    const menu = document.getElementById('context-menu');
-
-    const menuPosition = {
-      top: rect.top + window.scrollY - menu.offsetHeight - 10,
-      left: (rect.left + rect.right) / 2 + window.scrollX
-    };
-    menu.style.top = `${menuPosition.top}px`;
-    menu.style.left = `${menuPosition.left}px`;
-    menu.style.display = 'block';
-    // console.log(menu);
-
+  if (event.type === "contextmenu") {
     event.preventDefault();
   }
+  setTimeout(() => {
+    const selection = window.getSelection();
+    if (selection.rangeCount > 0 && selection.toString().trim().length) {
+      const x = event.pageX;
+      const y = event.pageY;
+
+      const menu = document.getElementById('context-menu');
+      const menuWidth = Number(menu.offsetWidth);
+      const menuHeight = Number(menu.offsetHeight);
+
+      menu.style.top = `${y - menuHeight * 1.25}px`;
+      menu.style.left = `${x - menuWidth * 0.5}px`;
+      menu.style.display = 'block';
+    }
+  }, 0);
 }
 
 function showContextMenuOnHover(event, range) {
   const menu = document.getElementById('context-menu');
   const rect = event.target.parentNode.getBoundingClientRect();
 
-  const menuPosition = {
-    top: rect.top + window.scrollY - menu.offsetHeight - 10,
-    left: event.clientX - menu.offsetWidth / 2
-  };
-  menu.style.top = `${menuPosition.top}px`;
-  menu.style.left = `${menuPosition.left}px`;
+  menu.style.top = `${event.pageY}px`;
+  menu.style.left = `${event.pageX}px`;
   menu.style.display = 'block';
   menu.setAttribute('selection-range', range);
 
